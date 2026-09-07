@@ -57,15 +57,15 @@ export async function registerPublicRoutes(app: FastifyInstance, db: Db) {
     return renderV2ray(endpointsWithSlot(endpoints, slotRow.uuid, sub.displayName));
   });
 
-  // ---------- DNS artifact ----------
-  app.get("/s/:token/dns", async (req, reply) => {
-    const { token } = z.object({ token: z.string().min(20), client: z.string().optional() }).parse(req.params);
+  // ---------- machine-readable DNS artifact (HTML page lives in pages.ts) ----------
+  app.get("/s/:token/dns/raw", async (req, reply) => {
+    const { token, client } = z.object({ token: z.string().min(20), client: z.enum(["singbox", "clash", "v2ray"]).optional() }).parse(req.params);
     const loaded = await loadByToken(db, token);
     if (!loaded?.plan?.dnsProfileId) return reply.code(404).send({ error: "NO_DNS_PROFILE" });
     const profile = (await db.select().from(schema.dnsProfiles).where(eq(schema.dnsProfiles.id, loaded.plan.dnsProfileId)).limit(1))[0];
     const resources = (await db.select().from(schema.dnsResources)).filter((r) => profile.resourceIds.includes(r.id));
     const lite: DnsResourceLite[] = resources.map((r) => ({ id: r.id, type: r.type, urlOrIp: r.urlOrIp, name: r.name }));
-    const flavor = detectClient(req.headers["user-agent"] ?? "");
+    const flavor = client ?? detectClient(req.headers["user-agent"] ?? "");
     reply.type("text/plain; charset=utf-8");
     if (flavor === "clash") return clashDns(lite, profile.routingMode);
     if (flavor === "singbox") return JSON.stringify(singBoxDns(lite, profile.routingMode), null, 2);
