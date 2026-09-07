@@ -257,9 +257,14 @@ export async function startBot(app: FastifyInstance): Promise<void> {
     return { ok: true };
   });
 
-  await bot.api.setWebhook(`${process.env.PUBLIC_BASE_URL}/telegram/webhook`, {
+  const base = (process.env.PUBLIC_BASE_URL ?? "").replace(/\/+$/, ""); // tolerate trailing slash
+  if (!base) {
+    console.error("bot: PUBLIC_BASE_URL is missing — webhook NOT registered. Set it and redeploy.");
+    return;
+  }
+  await bot.api.setWebhook(`${base}/telegram/webhook`, {
     secret_token: process.env.BOT_WEBHOOK_SECRET,
     allowed_updates: ["message", "callback_query"],
   });
-  console.log("bot: webhook registered");
+  console.log(`bot: webhook registered at ${base}/telegram/webhook`);
 }
