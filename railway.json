@@ -1,33 +1,20 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "build": { "builder": "NIXPACKS" },
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "deploy": {
     "startCommand": "node apps/api/dist/server.js",
+    "preDeployCommand": "npx drizzle-kit push --config=packages/database/drizzle.config.ts --force",
     "healthcheckPath": "/healthz",
-    "healthcheckTimeout": 60,
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   },
   "environments": {
     "production": {
       "services": {
-        "api": {
-          "rootDirectory": "apps/api",
-          "startCommand": "node dist/server.js",
-          "preDeployCommand": "npx drizzle-kit push --force"
-        },
-        "web": {
-          "rootDirectory": "apps/web",
-          "startCommand": "npm run start"
-        },
-        "worker": {
-          "rootDirectory": "apps/worker",
-          "startCommand": "node dist/index.js"
-        },
-        "bot": {
-          "rootDirectory": "apps/bot",
-          "startCommand": "node dist/index.js"
-        },
+        "app": {},
         "postgres": {
           "image": "postgres:16"
         }

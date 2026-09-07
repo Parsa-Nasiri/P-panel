@@ -1,7 +1,7 @@
 {
   "name": "proxy-platform",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -9,12 +9,9 @@
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc -b --pretty",
-    "dev:api": "npm -w apps/api run dev",
-    "dev:bot": "npm -w apps/bot run dev",
-    "dev:worker": "npm -w apps/worker run dev",
-    "dev:web": "npm -w apps/web run dev",
-    "seed": "node -w packages/database dist/seed.js",
-    "migrate": "drizzle-kit push"
+    "start": "node apps/api/dist/server.js",
+    "dev": "npm -w apps/api run dev",
+    "seed": "node packages/database/dist/seed.js"
   },
   "engines": {
     "node": ">=22"

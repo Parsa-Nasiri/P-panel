@@ -1,5 +1,5 @@
-import { Bot, session, webhookCallback, type Context, type SessionFlavor } from "grammy";
-import { createServer } from "node:http";
+import type { FastifyInstance } from "fastify";
+import { Bot, session, type Context, type SessionFlavor } from "grammy";
 import { eq } from "drizzle-orm";
 import { fa } from "@proxy/shared";
 import { sanitizeName, buildDisplayName, approveOrder, rejectOrder } from "@proxy/core";
@@ -14,7 +14,7 @@ interface SessionData {
 }
 type Ctx = Context & SessionFlavor<SessionData>;
 
-const bot = new Bot<Ctx>(process.env.BOT_TOKEN!);
+const bot = new Bot<Ctx>(process.env.BOT_TOKEN ?? "0:stub");
 bot.use(session({ initial: (): SessionData => ({}) }));
 
 // ---------- global commands ----------
@@ -168,7 +168,7 @@ bot.on("message:photo", async (ctx) => {
 // ---------- text: name entry / reject reason ----------
 bot.on("message:text", async (ctx) => {
   const flow = ctx.session.flow;
-  if (!flow) return; // menu handled by .hears(); unknown free text ignored
+  if (!flow) return;
 
   if (flow.kind === "name") {
     const res = sanitizeName(ctx.message.text);
@@ -231,8 +231,10 @@ bot.command("admin", async (ctx) => {
 
 bot.catch((err) => console.error("bot_error", err));
 
-// ---------- transport ----------
-async function start() {
+/** Boots the bot inside the api process: webhook via Fastify route, or polling. */
+export async function startBot(app: FastifyInstance): Promise<void> {
+  if (!process.env.BOT_TOKEN) return; // bot disabled when token absent
+  await bot.init();
   await bot.api.setMyCommands([
     { command: "start", description: "شروع" },
     { command: "help", description: "راهنما" },
@@ -240,19 +242,24 @@ async function start() {
   ]);
 
   if (process.env.BOT_MODE === "polling") {
-    bot.start();
-    console.log("bot polling started");
+    void bot.start(); // long polling
+    console.log("bot: polling started");
     return;
   }
 
-  // webhook mode with secret-token verification
-  const handle = webhookCallback(bot, "http", { secretToken: process.env.BOT_WEBHOOK_SECRET });
-  const server = createServer((req, res) => {
-    if (req.method === "POST" && req.url === "/telegram/webhook") return handle(req, res);
-    res.writeHead(200).end("ok");
+  // webhook mode: Telegram posts updates to the same Fastify server
+  app.post("/telegram/webhook", async (req, reply) => {
+    const secret = req.headers["x-telegram-bot-api-secret-token"];
+    if (process.env.BOT_WEBHOOK_SECRET && secret !== process.env.BOT_WEBHOOK_SECRET) {
+      return reply.code(401).send({ ok: false });
+    }
+    await bot.handleUpdate(req.body as any);
+    return { ok: true };
   });
-  server.listen(Number(process.env.PORT ?? 3001), () => console.log("bot webhook listening"));
-}
 
-await bot.init();
-start().catch(console.error);
+  await bot.api.setWebhook(`${process.env.PUBLIC_BASE_URL}/telegram/webhook`, {
+    secret_token: process.env.BOT_WEBHOOK_SECRET,
+    allowed_updates: ["message", "callback_query"],
+  });
+  console.log("bot: webhook registered");
+}

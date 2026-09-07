@@ -6,6 +6,7 @@ import { createDb, schema } from "@proxy/database";
 import { registerAdminRoutes } from "./routes/admin.js";
 import { registerPublicRoutes } from "./routes/public.js";
 import { registerNodeRoutes } from "./routes/node.js";
+import { registerPageRoutes } from "./routes/pages.js";
 import { audit } from "@proxy/core";
 
 export async function buildServer() {
@@ -24,6 +25,7 @@ export async function buildServer() {
   await registerAdminRoutes(app, db);
   await registerPublicRoutes(app, db);
   await registerNodeRoutes(app, db);
+  await registerPageRoutes(app, db);
 
   app.setErrorHandler((err, req, reply) => {
     req.log.error(err);
@@ -34,8 +36,22 @@ export async function buildServer() {
   return { app, db, schema };
 }
 
-if (process.env.JOB_MODE !== "1") {
-  buildServer().then(({ app }) => app.listen({ port: Number(process.env.PORT ?? 3000), host: "0.0.0.0" }));
+async function main() {
+  const { app, db } = await buildServer();
+
+  if (process.env.ENABLE_JOBS !== "0") {
+    const { startJobs } = await import("./jobs.js");
+    await startJobs(db);
+  }
+  if (process.env.BOT_TOKEN) {
+    const { startBot } = await import("./bot/index.js");
+    await startBot(app);
+  }
+
+  await app.listen({ port: Number(process.env.PORT ?? 3000), host: "0.0.0.0" });
+  console.log(`server listening on :${process.env.PORT ?? 3000}`);
 }
+
+main().catch((e) => { console.error(e); process.exit(1); });
 
 export type { FastifyInstance };

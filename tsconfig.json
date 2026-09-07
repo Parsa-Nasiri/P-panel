@@ -5,8 +5,6 @@
     { "path": "packages/database" },
     { "path": "packages/core" },
     { "path": "packages/cloudflare" },
-    { "path": "apps/api" },
-    { "path": "apps/worker" },
-    { "path": "apps/bot" }
+    { "path": "apps/api" }
   ]
 }

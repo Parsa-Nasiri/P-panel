@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-import { hashPassword, randomToken, sha256 } from "@proxy/shared";
+import { hashPassword } from "@proxy/shared";
 import { createDb, schema } from "./client.js";
 import { admins, plans, profiles, nodePools, dnsProfiles, dnsResources, settings } from "./schema.js";
 
@@ -19,14 +18,14 @@ export async function seed(databaseUrl: string, adminEmail: string, adminPasswor
 
   const pool = await db.insert(nodePools).values({
     name: "EU-Standard-001", kind: "standard", region: "eu",
-    profileId: stdProfile[0]?.id ?? randomUUID(),
+    profileId: stdProfile[0]?.id,
     healthPolicy: { failureThreshold: 3, recoveryThreshold: 5, soakSec: 300, minResidencySec: 600, cooldownSec: 300 },
   }).onConflictDoNothing().returning();
 
-  const dohProfile = await db.insert(dnsProfiles).values({
+  await db.insert(dnsProfiles).values({
     name: "gaming-dns-eu", routingMode: "via-tunnel",
     resourceIds: [], upstreams: ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"],
-  }).onConflictDoNothing().returning();
+  }).onConflictDoNothing();
 
   await db.insert(dnsResources).values([
     { name: "Cloudflare DoH", type: "doh-public", urlOrIp: "https://1.1.1.1/dns-query", poolId: pool[0]?.id },
@@ -34,7 +33,6 @@ export async function seed(databaseUrl: string, adminEmail: string, adminPasswor
     { name: "CF plain bootstrap", type: "plain-ip", urlOrIp: "1.1.1.1", poolId: pool[0]?.id },
   ]).onConflictDoNothing();
 
-  const trialToken = randomToken();
   await db.insert(plans).values([
     {
       name: "Standard 100GB", durationDays: 30, trafficBytes: 100 * 1024 ** 3, maxDevices: 3,
@@ -44,7 +42,7 @@ export async function seed(databaseUrl: string, adminEmail: string, adminPasswor
     {
       name: "Gaming 200GB", durationDays: 30, trafficBytes: 200 * 1024 ** 3, maxDevices: 2,
       profileId: gamingProfile[0]?.id, poolId: pool[0]?.id, gaming: true, failoverMode: "sticky",
-      dnsProfileId: dohProfile[0]?.id, priceCents: 900000, isTrial: false, isActive: true,
+      dnsProfileId: null, priceCents: 900000, isTrial: false, isActive: true,
     },
     {
       name: "Trial", durationDays: 2, trafficBytes: 100 * 1024 ** 2, maxDevices: 1,
@@ -54,16 +52,18 @@ export async function seed(databaseUrl: string, adminEmail: string, adminPasswor
   ]).onConflictDoNothing();
 
   await db.insert(settings).values([
-    { key: "payment_instructions", value: { text: "کارت به کارت: 6037-99xx-xxxx-xxxx — به نام مدیر" } },
+    { key: "payment_instructions", value: { text: "کارت به کارت: شماره کارت را اینجا وارد کنید — به نام مدیر" } },
     { key: "bot_texts", value: { supportHandle: "@admin" } },
-    { key: "_trial_token_unused", value: { t: sha256(trialToken).slice(0, 8) } },
   ]).onConflictDoNothing();
 
   console.log("Seed complete. Admin:", adminEmail);
   process.exit(0);
 }
 
-if (process.argv[2]) {
-  const [url, email, pass] = process.argv.slice(2);
-  seed(url, email ?? "admin@local", pass ?? randomToken(16));
+const url = process.env.DATABASE_URL ?? process.argv[2];
+if (!url) {
+  console.error("Usage: DATABASE_URL=... ADMIN_EMAIL=... ADMIN_PASSWORD=... npm run seed");
+  process.exit(1);
 }
+seed(url, process.env.ADMIN_EMAIL ?? process.argv[3] ?? "admin@local", process.env.ADMIN_PASSWORD ?? process.argv[4] ?? "changeme-admin-123")
+  .catch((e) => { console.error(e); process.exit(1); });

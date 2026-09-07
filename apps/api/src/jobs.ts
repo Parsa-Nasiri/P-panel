@@ -1,13 +1,13 @@
 import PgBoss from "pg-boss";
 import pino from "pino";
-import { eq } from "drizzle-orm";
-import { createDb, schema } from "@proxy/database";
+import { eq, isNull } from "drizzle-orm";
+import type { Db } from "@proxy/database";
+import { schema } from "@proxy/database";
 import {
   markExceededIfNeeded, markExpiredIfNeeded, aggregateDaily, pruneUsageEvents, releaseStaleSlots,
 } from "@proxy/core";
 
 const log = pino({ level: process.env.LOG_LEVEL ?? "info" });
-const { db } = createDb(process.env.DATABASE_URL!);
 
 const QUEUES = {
   usageAggregate: "usage-aggregate",
@@ -18,7 +18,7 @@ const QUEUES = {
   botNotify: "bot-notify",
 } as const;
 
-/** Telegram sender used by worker jobs (bot service handles interactive flows). */
+/** Telegram sender used by jobs (interactive bot flows live in bot/index.ts). */
 async function sendTelegram(chatId: number, text: string): Promise<boolean> {
   const token = process.env.BOT_TOKEN;
   if (!token) return false;
@@ -34,13 +34,13 @@ async function sendTelegram(chatId: number, text: string): Promise<boolean> {
   }
 }
 
-async function start() {
+/** Starts pg-boss + all recurring jobs in-process. Called once at boot. */
+export async function startJobs(db: Db): Promise<void> {
   const boss = new PgBoss({ connectionString: process.env.DATABASE_URL! });
   boss.on("error", (e) => log.error({ e }, "pg_boss_error"));
   await boss.start();
   for (const name of Object.values(QUEUES)) await boss.createQueue(name);
 
-  // schedules (all >= 60s; Railway cron only used for >=5min daily tasks)
   await boss.schedule(QUEUES.usageAggregate, "*/1 * * * *");
   await boss.schedule(QUEUES.reconcile, "*/15 * * * *");
   await boss.schedule(QUEUES.deviceExpiry, "*/15 * * * *");
@@ -77,7 +77,6 @@ async function start() {
   });
 
   await boss.work(QUEUES.botNotify, async () => {
-    // quota >= 80% warnings
     const rows = await db.select({
       tg: schema.users.telegramId, used: schema.subscriptions.bytesUsed, total: schema.subscriptions.bytesTotal,
       expires: schema.subscriptions.expiresAt, name: schema.subscriptions.displayName,
@@ -93,8 +92,6 @@ async function start() {
         await sendTelegram(r.tg, `⏳ اشتراک «${r.name}» تا ${daysLeft} روز دیگر منقضی می‌شود.`);
       }
     }
-    // undelivered notifications (order decisions)
-    const { isNull } = await import("drizzle-orm");
     const pending = await db.select().from(schema.notifications).where(isNull(schema.notifications.sentAt)).limit(50);
     for (const n of pending) {
       if (await sendTelegram(n.telegramUserId, n.text)) {
@@ -103,7 +100,5 @@ async function start() {
     }
   });
 
-  log.info("worker started");
+  log.info("jobs started");
 }
-
-start().catch((e) => { log.error(e); process.exit(1); });
