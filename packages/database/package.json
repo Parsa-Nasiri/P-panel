@@ -1,0 +1,21 @@
+{
+  "name": "@proxy/database",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsc -b --watch",
+    "push": "drizzle-kit push",
+    "seed": "node dist/seed.js"
+  },
+  "dependencies": {
+    "@proxy/shared": "*",
+    "drizzle-orm": "^0.33.0",
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.24.0"
+  }
+}
