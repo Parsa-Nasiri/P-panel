@@ -1,8 +1,15 @@
 """Verdent Platform — FastAPI application entrypoint.
 
 Railway service: `web`  (start: uvicorn api.main:app --host 0.0.0.0 --port $PORT)
-On startup: bootstrap the bootstrap-OWNER admin from TELEGRAM_OWNER_ID if
-missing (Document 5, "Bootstrap Owner" — idempotent, safe to re-run).
+
+On startup:
+  1. bootstrap OWNER admin (TELEGRAM_OWNER_ID, read exactly once)
+  2. seed default plans (only when the plans table is empty)
+  3. seed the default gaming profile (Tier A/B honest settings)
+  4. register the Telegram webhook (only when token + base URL are set)
+
+The app boots even when Telegram/Cloudflare are unconfigured — the control
+plane never depends on the bot to run.
 """
 
 import contextlib
@@ -13,6 +20,10 @@ from fastapi import FastAPI
 from admin_panel.bootstrap_admin import ensure_bootstrap_owner
 from api.routes import health as health_routes
 from api.routes import nodes as node_routes
+from api.routes import subscription as subscription_routes
+from api.routes import telegram as telegram_routes
+from domain import plans as plans_domain
+from domain import gaming as gaming_domain
 from domain.config import settings
 from domain import __version_platform__
 
@@ -24,13 +35,30 @@ logger = logging.getLogger("verdent.platform")
 async def lifespan(app: FastAPI):
     logger.info("verdent-platform %s starting (env=%s)", __version_platform__, settings.environment)
 
+    startup_errors: list[str] = []
+
+    for name, coro_factory in [
+        ("bootstrap owner", ensure_bootstrap_owner),
+        ("default plans", plans_domain.seed_default_plans),
+        ("gaming profile", gaming_domain.seed_default_gaming_profile),
+    ]:
+        try:
+            await coro_factory()
+            logger.info("%s: ok", name)
+        except Exception:  # noqa: BLE001
+            logger.exception("%s FAILED", name)
+            startup_errors.append(name)
+
     try:
-        await ensure_bootstrap_owner()
-        logger.info("bootstrap owner ensured")
+        from bot.webhook import register_webhook
+
+        await register_webhook()
     except Exception:  # noqa: BLE001
-        # Never block boot on bootstrap failure in development; Railway's
-        # restart policy retries. Logged loudly either way.
-        logger.exception("bootstrap owner FAILED — check DATABASE_URL and TELEGRAM_OWNER_ID")
+        logger.exception("webhook registration failed")
+        startup_errors.append("webhook")
+
+    if startup_errors:
+        logger.warning("startup had failures: %s (continuing — Railway restarts on crash)", startup_errors)
 
     yield
 
@@ -45,3 +73,5 @@ app = FastAPI(
 
 app.include_router(health_routes.router)
 app.include_router(node_routes.router)
+app.include_router(subscription_routes.router)
+app.include_router(telegram_routes.router)

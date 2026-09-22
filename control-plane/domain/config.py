@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     r2_bucket_name: str = "bpb-payment-proofs"
     stars_enabled: bool = False
 
+    # --- 5. Manual payment (shown to customers on the payment screen) -------
+    payment_card_number: str = ""
+    payment_card_holder: str = ""
+    payment_instructions: str = ""
+
+    # --- 6. Data plane -------------------------------------------------------
+    # Durable Objects need Workers Paid; on free plans leave false and the
+    # Node degrades to fail-open session checks (warning logged at the edge).
+    nodes_enable_durable_objects: bool = False
+    # Deployed fork bundle uploaded to Cloudflare at provisioning time.
+    node_worker_bundle_path: str = "assets/worker_bundle.js"
+
     @property
     def async_database_url(self) -> str:
         return _normalize_postgres_url(self.database_url)
