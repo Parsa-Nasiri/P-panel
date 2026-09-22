@@ -478,6 +478,12 @@ async def cb_admin_panel(call: CallbackQuery, state: FSMContext):
     elif action == "addadmin" and rbac.PERM_ADMIN_MANAGE in perms:
         await state.set_state(states.AdminFlow.waiting_admin_telegram_id)
         await call.message.answer("شناسه عددی تلگرام ادمین جدید را بفرستید:")
+    elif action == "addnode" and rbac.PERM_NODE_MANAGE in perms:
+        await state.set_state(states.AdminFlow.waiting_node_name)
+        await call.message.answer(
+            "نام اسکریپت نود جدید را بفرستید (حروف کوچک انگلیسی و خط تیره، "
+            "مثلاً verdent-node-2):"
+        )
     elif action == "test" and rbac.PERM_TEST_CONFIG in perms:
         await state.set_state(states.AdminFlow.waiting_reject_reason)
         await state.update_data(admin_action="test_config")
@@ -749,6 +755,79 @@ async def _admin_create_test(message: Message, telegram_id: str):
             f"🧪 کانفیگ تستی ساخته شد: <b>{config.display_name}</b>\n"
             + texts.MSG_SUB_LINK.format(link=subscription_url(config))
         )
+
+
+@router.message(states.AdminFlow.waiting_node_name)
+async def on_node_name(message: Message, state: FSMContext):
+    """Provision a new Node from the stored Cloudflare account (Phase 2).
+    The API token itself is never typed into Telegram — it lives encrypted
+    in Postgres (added once via web Shell, see SETUP-GUIDE §6)."""
+    script_name = (message.text or "").strip().lower()
+    await state.clear()
+
+    role = await _get_admin_role(message.from_user.id)
+    if not role or rbac.PERM_NODE_MANAGE not in rbac.permissions_for(role):
+        return
+
+    import re as _re
+
+    if not _re.fullmatch(r"[a-z0-9][a-z0-9-]{0,30}", script_name):
+        await message.answer("نام نامعتبر است. فقط حروف کوچک انگلیسی، عدد و خط تیره.")
+        return
+
+    from db.models import CloudflareAccount
+    from domain.provisioning import ProvisioningError, provision_node
+
+    async with SessionLocal() as db:
+        account = (
+            await db.execute(select(CloudflareAccount).limit(1))
+        ).scalar_one_or_none()
+
+        if account is None:
+            await message.answer(
+                "ابتدا حساب Cloudflare را اضافه کنید (SETUP-GUIDE §6 مرحله ۱)."
+            )
+            return
+
+        taken = (
+            await db.execute(
+                select(Node.id).where(Node.worker_script_name == script_name).limit(1)
+            )
+        ).scalar_one_or_none()
+        if taken:
+            await message.answer("نودی با این نام از قبل ثبت شده است.")
+            return
+
+        admin = (
+            await db.execute(select(Admin).where(Admin.telegram_user_id == str(message.from_user.id)))
+        ).scalar_one_or_none()
+
+        await message.answer("⏳ در حال ساخت نود روی Cloudflare... (تا ۲ دقیقه)")
+
+        try:
+            node = await provision_node(
+                db, account.id, script_name,
+                capability_tags=["general", "doh", "gaming"],
+            )
+        except ProvisioningError as exc:
+            await message.answer(f"❌ خطا در ساخت نود:\n<code>{exc}</code>")
+            return
+
+        from domain.audit import audit
+
+        await audit(
+            db,
+            "node.provisioned",
+            actor_id=admin.id if admin else None,
+            target_type="node",
+            target_id=node.id,
+            details={"script": script_name, "url": node.custom_domain},
+        )
+
+    await message.answer(
+        f"✅ نود ساخته شد:\n🔗 <code>{node.custom_domain}</code>\n\n"
+        "در چرخه‌ی بعدی سلامت (حداکثر ۶۰ ثانیه) ONLINE می‌شود."
+    )
 
 
 # ---------------------------------------------------------------------------

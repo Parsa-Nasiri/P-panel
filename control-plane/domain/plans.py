@@ -4,6 +4,11 @@ Runs at startup alongside the bootstrap admin, ONLY when the plans table is
 empty. Prices are placeholders in IRR (Rial) — the OWNER edits them via the
 admin panel (Phase 4) before going live. The XTR (Stars) plan is only
 advertised when STARS_ENABLED=true (Phase 5).
+
+plans.pool_id is NOT NULL (schema), so a default pool is seeded first: the
+pool is empty of nodes until the OWNER provisions infrastructure (Phase 2) —
+that's correct: nothing is purchasable until a node exists, and the buy
+button surfaces an honest "no capacity" message.
 """
 
 import logging
@@ -11,11 +16,13 @@ import logging
 from sqlalchemy import select, func
 
 from db.base import SessionLocal
-from db.models import Plan
+from db.models import Plan, Pool
 
 logger = logging.getLogger("verdent.plans")
 
 GB = 1024 * 1024 * 1024
+
+DEFAULT_POOL_NAME = "general"
 
 DEFAULT_PLANS = [
     {
@@ -66,11 +73,39 @@ DEFAULT_PLANS = [
 
 async def seed_default_plans() -> None:
     async with SessionLocal() as db:
+        pool_count = (await db.execute(select(func.count()).select_from(Pool))).scalar_one()
+        if pool_count == 0:
+            db.add(
+                Pool(
+                    name=DEFAULT_POOL_NAME,
+                    capability_tags=["general", "doh", "gaming"],
+                    selection_strategy="least_loaded",
+                    min_health_score=0,
+                    max_customers_per_node=3,
+                    backup_count=0,
+                )
+            )
+            await db.flush()
+            logger.info("seeded default pool %r", DEFAULT_POOL_NAME)
+
         count = (await db.execute(select(func.count()).select_from(Plan))).scalar_one()
         if count > 0:
+            await db.commit()
             return
 
+        pool = (
+            await db.execute(select(Pool).where(Pool.name == DEFAULT_POOL_NAME))
+        ).scalar_one()
+
+        from db.models import GamingProfile
+
+        gaming_profile = (
+            await db.execute(
+                select(GamingProfile).where(GamingProfile.is_current.is_(True)).limit(1)
+            )
+        ).scalar_one_or_none()
+
         for spec in DEFAULT_PLANS:
-            db.add(Plan(**spec))
+            db.add(Plan(**spec, pool_id=pool.id, gaming_profile_id=gaming_profile.id if spec["name"].endswith("گیمینگ") else None))
         await db.commit()
         logger.info("seeded %d default plans", len(DEFAULT_PLANS))

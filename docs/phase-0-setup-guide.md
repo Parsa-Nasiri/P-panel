@@ -1,3 +1,5 @@
+> **SUPERSEDED:** this Phase-0-only guide is kept for history. Use [SETUP-GUIDE.md](SETUP-GUIDE.md) - it covers the full system.
+
 # Phase 0 — Setup & Deployment Guide
 
 Everything needed to take this repository from empty Railway project to a

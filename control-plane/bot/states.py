@@ -12,6 +12,7 @@ class AdminFlow(StatesGroup):
     waiting_reject_reason = State()
     waiting_admin_telegram_id = State()
     waiting_admin_role = State()
+    waiting_node_name = State()
 
 
 class Support(StatesGroup):

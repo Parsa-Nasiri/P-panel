@@ -39,8 +39,8 @@ async def lifespan(app: FastAPI):
 
     for name, coro_factory in [
         ("bootstrap owner", ensure_bootstrap_owner),
+        ("gaming profile", gaming_domain.seed_default_gaming_profile),  # before plans (gaming plan links to it)
         ("default plans", plans_domain.seed_default_plans),
-        ("gaming profile", gaming_domain.seed_default_gaming_profile),
     ]:
         try:
             await coro_factory()

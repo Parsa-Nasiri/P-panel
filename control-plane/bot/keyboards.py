@@ -69,6 +69,7 @@ def admin_panel(permissions: set[str]) -> InlineKeyboardMarkup:
         add(InlineKeyboardButton(text="👑 افزودن ادمین", callback_data="adm:addadmin"))
     if "node.manage" in permissions:
         add(InlineKeyboardButton(text="🖥 مدیریت نودها", callback_data="adm:nodes"))
+        add(InlineKeyboardButton(text="➕ ساخت نود جدید", callback_data="adm:addnode"))
     add(InlineKeyboardButton(text="📊 وضعیت سیستم", callback_data="adm:stats"))
 
     kb.row(*[b for row in rows for b in row])

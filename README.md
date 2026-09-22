@@ -24,9 +24,10 @@ env.example      every environment variable, grouped by "touch now or not"
 
 ## Status
 
-Phase 0 (per Document 6's roadmap): **code complete** — see
-[docs/phase-0-setup-guide.md](docs/phase-0-setup-guide.md) for deployment and
-the acceptance check (two test UUIDs, independently correct byte counts).
+**All phases (0-5) implemented.** Start here:
+**[docs/SETUP-GUIDE.md](docs/SETUP-GUIDE.md)** — the complete, current
+deployment + operations guide (Railway, Cloudflare, Telegram, first Node,
+free-plan realities).
 
 ## Getting started
 
