@@ -1,0 +1,31 @@
+# BPB Commercial Platform — Railway service config
+# Document 6, §N: one Railway project, three services (web / worker / cron) sharing the
+# Dockerfile at the repo root, plus managed Postgres and Redis add-ons.
+#
+# This file configures the `web` service. `worker` and `cron` are added as additional
+# services in the Railway dashboard pointing at the same repo/Dockerfile, each with its
+# own Start Command override (see the two commented blocks below) — Railway's own
+# multi-service pattern for a monorepo, rather than three separate repos.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn api.main:app --host 0.0.0.0 --port $PORT"
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5
+
+# --- worker service (separate Railway service, same repo/image) ---
+# startCommand = "python -m workers.main"
+# Runs the Redis-backed job queue consumer AND the sub-5-minute health-check loop
+# (Document 6 §N — Railway's native cron can't go below 5 minutes, so anything faster
+# than that lives here as an always-on asyncio loop, not as Railway Cron).
+
+# --- cron service (separate Railway service, same repo/image) ---
+# startCommand = "python -m workers.cron_entrypoint"
+# Set a Cron Schedule in this service's Settings (Railway's native feature, ≥5-minute
+# granularity, evaluated in UTC) for: expiry checks, quota-flag pushes, usage
+# reconciliation, test-config cleanup, notification digests.

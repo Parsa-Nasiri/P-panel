@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BPB Panel v__VERSION__</title>
+    <link id="favicon" rel="icon" type="image/x-icon" href="data:image/x-icon;base64,__ICON__">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,300;1,400;1,500;1,700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --color-bg-main: linear-gradient(90deg, #000328, #00458E);
+            --color-text-primary: #f1f5f9;
+            --color-text-secondary: #aec4e2;
+            --shadow-header: 0.125rem 0.125rem 0.25rem #000328;
+            --space-sm: 0.5rem;
+        }
+
+        body,
+        html {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Ubuntu", system-ui;
+            color: var(--color-text-secondary);
+            background: var(--color-bg-main);
+            text-align: center;
+            text-align: center;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        h1 {
+            color: var(--color-text-primary);
+            text-shadow: var(--shadow-header);
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            gap: var(--space-sm);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon {
+            height: 2.5rem;
+        }
+
+        .panel-version {
+            align-self: flex-start;
+            font-size: large;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="error-container">
+        <div class="header">
+            <img id="header-logo" src="data:image/x-icon;base64,__ICON__" alt="BPB Logo" width="48" height="48">
+            <h1>
+                BPB Panel
+                <span class="panel-version">
+                    v__VERSION__
+                </span>
+            </h1>
+        </div>
+
+        <div>
+            <h2>❌ Something went wrong!</h2>
+            <p>
+                <b>__ERROR_MESSAGE__</b>
+            </p>
+        </div>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,40 @@
+# Verdent Node — forked BPB Cloudflare Worker
+# Forked from bia-pain-bache/BPB-Worker-Panel v5.1.1 (GPL-3.0).
+#
+# Per-Node values (`<...>`) are replaced at provisioning time — either by the
+# Control Plane's automated flow (Phase 2) or manually per provision-manual.md
+# (Phase 0). The `kv` namespace is the Node's own bound namespace: the only
+# storage the Node reads (proxyUsers, nodeSecret).
+
+name = "<WORKER_SCRIPT_NAME>"
+main = "src/worker.ts"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+no_bundle = false
+
+# The Node's provisioned settings, as a JSON string. Replaced at provisioning.
+[vars]
+provisioned = "<PROVISIONED_JSON>"
+
+[[kv_namespaces]]
+binding = "kv"
+id = "<KV_NAMESPACE_ID>"
+
+# Concurrent-session admission (Document 1 #5). Requires Workers Paid plan
+# for storage-backed Durable Objects — flagged in the deployment guide; on a
+# free-plan Node the check degrades to skip (fail-open) with a one-time warning.
+[[durable_objects.bindings]]
+name = "SESSION_COUNTER"
+class_name = "SessionCounter"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["SessionCounter"]
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = true
+
+[observability]
+enabled = true

@@ -1,0 +1,27 @@
+{
+    "include": ["src"],
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "esnext",
+        "types": ["@cloudflare/workers-types", "node"],
+        "moduleResolution": "bundler",
+        "strict": true,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "isolatedModules": true,
+        "paths": {
+            "@cores/*": ["./src/cores/*"],
+            "@utils": ["./src/cores/utils"],
+            "@handlers/*": ["./src/handlers/*"],
+            "@settings": ["./src/settings/settings"],
+            "@settings/*": ["./src/settings/*"],
+            "@common": ["./src/common/common"],
+            "@protocols/*": ["./src/protocols/*"],
+            "@usage/*": ["./src/usage/*"],
+            "#types/*": ["./src/types/*"]
+        },
+        "lib": ["ESNext"]
+    }
+}
