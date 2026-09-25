@@ -106,6 +106,14 @@ async def seed_default_plans() -> None:
         ).scalar_one_or_none()
 
         for spec in DEFAULT_PLANS:
-            db.add(Plan(**spec, pool_id=pool.id, gaming_profile_id=gaming_profile.id if spec["name"].endswith("گیمینگ") else None))
+            # Every spec carries gaming_profile_id=None as its documented default;
+            # passing it again as a kwarg raises TypeError. Copy and overwrite.
+            fields = dict(spec)
+            fields["gaming_profile_id"] = (
+                gaming_profile.id
+                if gaming_profile is not None and spec["name"].endswith("گیمینگ")
+                else None
+            )
+            db.add(Plan(**fields, pool_id=pool.id))
         await db.commit()
         logger.info("seeded %d default plans", len(DEFAULT_PLANS))

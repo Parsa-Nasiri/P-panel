@@ -30,9 +30,12 @@ class OrderError(Exception):
 async def get_or_create_customer(
     db: AsyncSession, telegram_user_id: int, username: str | None, display_name: str | None
 ) -> Customer:
+    # customers.telegram_user_id is BIGINT (schema + model) — compare and
+    # insert as int, never str, or Postgres rejects it with
+    # "operator does not exist: bigint = character varying".
     customer = (
         await db.execute(
-            select(Customer).where(Customer.telegram_user_id == str(telegram_user_id))
+            select(Customer).where(Customer.telegram_user_id == int(telegram_user_id))
         )
     ).scalar_one_or_none()
 
@@ -40,7 +43,7 @@ async def get_or_create_customer(
 
     if customer is None:
         customer = Customer(
-            telegram_user_id=str(telegram_user_id),
+            telegram_user_id=int(telegram_user_id),
             telegram_username=username,
             display_name=display_name,
             first_seen_at=now,

@@ -59,7 +59,9 @@ def role_has_permission(role: str, permission: str) -> bool:
 
 
 def admin_role_for_telegram_id(telegram_user_id: int, admins: list[Admin]) -> str | None:
+    # Admin.telegram_user_id is BIGINT — compare as int. A str comparison
+    # never matches, which silently reports every admin as non-admin.
     for a in admins:
-        if a.telegram_user_id == str(telegram_user_id):
+        if a.telegram_user_id == int(telegram_user_id):
             return a.role
     return None

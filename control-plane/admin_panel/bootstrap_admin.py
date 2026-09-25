@@ -24,12 +24,15 @@ async def ensure_bootstrap_owner() -> None:
         logger.warning("TELEGRAM_OWNER_ID not set — skipping bootstrap owner (development only)")
         return
 
-    telegram_owner_str = str(owner_id)
+    # admins.telegram_user_id is BIGINT (schema + model): compare and insert
+    # as int. Coercing to str here makes Postgres reject the comparison with
+    # "operator does not exist: bigint = character varying".
+    telegram_owner_id = int(owner_id)
 
     async with SessionLocal() as session:
         existing_owner = (
             await session.execute(
-                select(Admin).where(Admin.telegram_user_id == telegram_owner_str)
+                select(Admin).where(Admin.telegram_user_id == telegram_owner_id)
             )
         ).scalar_one_or_none()
 
@@ -50,10 +53,10 @@ async def ensure_bootstrap_owner() -> None:
 
         session.add(
             Admin(
-                telegram_user_id=telegram_owner_str,
+                telegram_user_id=telegram_owner_id,
                 role="OWNER",
                 created_by=None,
             )
         )
         await session.commit()
-        logger.info("bootstrap OWNER inserted for telegram user %s", telegram_owner_str)
+        logger.info("bootstrap OWNER inserted for telegram user %s", telegram_owner_id)

@@ -606,7 +606,7 @@ async def cb_review_approve(call: CallbackQuery, state: FSMContext):
             return
 
         admin = (
-            await db.execute(select(Admin).where(Admin.telegram_user_id == str(call.from_user.id)))
+            await db.execute(select(Admin).where(Admin.telegram_user_id == call.from_user.id))
         ).scalar_one_or_none()
         admin_id = admin.id if admin else None
 
@@ -691,7 +691,7 @@ async def on_reject_reason(message: Message, state: FSMContext):
 
         order = (await db.execute(select(Order).where(Order.id == order_id))).scalar_one_or_none()
         admin = (
-            await db.execute(select(Admin).where(Admin.telegram_user_id == str(message.from_user.id)))
+            await db.execute(select(Admin).where(Admin.telegram_user_id == message.from_user.id))
         ).scalar_one_or_none()
 
         customer = (
@@ -799,7 +799,7 @@ async def on_node_name(message: Message, state: FSMContext):
             return
 
         admin = (
-            await db.execute(select(Admin).where(Admin.telegram_user_id == str(message.from_user.id)))
+            await db.execute(select(Admin).where(Admin.telegram_user_id == message.from_user.id))
         ).scalar_one_or_none()
 
         await message.answer("⏳ در حال ساخت نود روی Cloudflare... (تا ۲ دقیقه)")
@@ -877,7 +877,7 @@ async def on_admin_role(call: CallbackQuery, state: FSMContext):
 
     async with SessionLocal() as db:
         exists = (
-            await db.execute(select(Admin).where(Admin.telegram_user_id == tg_id))
+            await db.execute(select(Admin).where(Admin.telegram_user_id == int(tg_id)))
         ).scalar_one_or_none()
         if exists is not None:
             await call.message.answer("این کاربر قبلاً ادمین شده است.")
@@ -885,10 +885,10 @@ async def on_admin_role(call: CallbackQuery, state: FSMContext):
             return
 
         admin = (
-            await db.execute(select(Admin).where(Admin.telegram_user_id == str(call.from_user.id)))
+            await db.execute(select(Admin).where(Admin.telegram_user_id == call.from_user.id))
         ).scalar_one_or_none()
 
-        db.add(Admin(telegram_user_id=tg_id, role=new_role, created_by=admin.id if admin else None))
+        db.add(Admin(telegram_user_id=int(tg_id), role=new_role, created_by=admin.id if admin else None))
         await db.commit()
 
         from domain.audit import audit

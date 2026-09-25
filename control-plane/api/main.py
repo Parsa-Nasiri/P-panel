@@ -27,6 +27,13 @@ from domain import gaming as gaming_domain
 from domain.config import settings
 from domain import __version_platform__
 
+# Importing bot.router is what attaches the Telegram handlers to the webhook
+# dispatcher (its last line calls dp.include_router). Without this import the
+# webhook route accepts updates but no handler is ever registered, so /start
+# and every command silently do nothing. Imported here — after bot.webhook is
+# importable — and never from bot.webhook itself (see that module's docstring).
+import bot.router  # noqa: E402, F401
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("verdent.platform")
 
