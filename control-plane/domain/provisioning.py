@@ -106,9 +106,12 @@ async def provision_node(
         "dohUrl": "",
     }
 
-    # 4. Upload the forked bundle + enable the public subdomain
+    # 4. Upload → enable subdomain → re-upload. Two uploads on purpose:
+    #    the subdomain endpoint 404s while the script does not exist yet,
+    #    and the bundle refuses to boot when mainDomain is empty — so the
+    #    final workers.dev URL has to be embedded in a second upload.
+    bundle = _load_bundle()
     try:
-        bundle = _load_bundle()
         await client.upload_worker_script(
             worker_script_name,
             bundle,
@@ -117,6 +120,18 @@ async def provision_node(
             settings.nodes_enable_durable_objects,
         )
         public_url = await client.enable_workers_dev(worker_script_name)
+        provisioned["mainDomain"] = public_url.split("://", 1)[-1]
+        await client.upload_worker_script(
+            worker_script_name,
+            bundle,
+            json.dumps(provisioned, ensure_ascii=False),
+            namespace_id,
+            settings.nodes_enable_durable_objects,
+        )
+        # Re-assert the toggle: a PUT upload may reset workers.dev exposure,
+        # and the failure mode (dead public URL with a healthy-looking node)
+        # is silent. Idempotent, so always run it after the final upload.
+        await client.enable_workers_dev(worker_script_name)
     except Exception as exc:  # noqa: BLE001
         raise ProvisioningError(f"worker upload failed: {exc}") from exc
 

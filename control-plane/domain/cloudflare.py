@@ -122,7 +122,10 @@ class CloudflareClient:
 
     async def enable_workers_dev(self, script_name: str) -> str:
         """Enable the workers.dev subdomain and return the public URL."""
-        result = _check(
+        # The POST response only confirms the toggle — it returns
+        # {"enabled": true, "previews_enabled": false} and never the
+        # subdomain name. The name lives on the account-level endpoint.
+        _check(
             await self._request(
                 "POST",
                 f"/accounts/{self._account_id}/workers/scripts/{script_name}/subdomain",
@@ -130,7 +133,10 @@ class CloudflareClient:
             ),
             "enable workers.dev subdomain",
         )
-        subdomain = result.get("subdomain")
+        subdomain = _check(
+            await self._request("GET", f"/accounts/{self._account_id}/workers/subdomain"),
+            "get workers.dev subdomain",
+        ).get("subdomain")
         if not subdomain:
             raise CloudflareError("workers.dev subdomain missing from response")
         return f"https://{script_name}.{subdomain}.workers.dev"

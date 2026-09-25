@@ -1,0 +1,12 @@
+# Keep the Railway upload to just what the control-plane image needs.
+# node-worker/ is the Cloudflare relay source (211MB) — it is NOT part of the
+# control-plane Dockerfile build (which copies only control-plane/), and it is
+# deployed to Cloudflare by the provisioning code, never to Railway.
+node-worker/
+graphify-out/
+.git/
+__pycache__/
+*.pyc
+.venv/
+.env
+*.log
